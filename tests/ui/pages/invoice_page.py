@@ -1,4 +1,6 @@
 """Page Object Model for Invoice Upload page."""
+from pathlib import Path
+
 from playwright.sync_api import Page, expect
 
 
@@ -24,22 +26,21 @@ class InvoicePage:
     
     def upload_file_via_drag_drop(self, file_path: str):
         """Upload a file via drag and drop."""
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             file_content = f.read()
-        
-        # Create a DataTransfer object simulation
+        # Pass a single arg (Playwright serializes to JSON); bytes as list of ints
+        arg = {"fileContent": list(file_content), "fileName": Path(file_path).name}
         self.page.evaluate(
             """
-            (fileContent, fileName) => {
+            (arg) => {
                 const dataTransfer = new DataTransfer();
-                const file = new File([fileContent], fileName, { type: 'application/pdf' });
+                const file = new File([new Uint8Array(arg.fileContent)], arg.fileName, { type: 'application/pdf' });
                 dataTransfer.items.add(file);
                 const event = new DragEvent('drop', { dataTransfer });
                 document.getElementById('uploadSection').dispatchEvent(event);
             }
             """,
-            file_content,
-            file_path.split('/')[-1]
+            arg,
         )
     
     def wait_for_processing(self, timeout: int = 10000):

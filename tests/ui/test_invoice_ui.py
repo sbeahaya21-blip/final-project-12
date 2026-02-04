@@ -162,7 +162,7 @@ class TestInvoiceUploadUI:
         invoice_page.wait_for_processing()
         
         expect(invoice_page.results.locator(".error")).to_be_visible()
-        expect(invoice_page.get_error_message()).to_contain_text("Error")
+        expect(invoice_page.results.locator(".error")).to_contain_text("Error")
 
 
 class TestAnomalyDisplay:
