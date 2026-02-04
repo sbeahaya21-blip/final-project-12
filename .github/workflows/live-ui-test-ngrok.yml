@@ -1,0 +1,46 @@
+# Run real UI test on GitHub against YOUR machine via ngrok.
+# You must: 1) Start backend + frontend + ERPNext locally. 2) Expose app with ngrok. 3) Set secret LIVE_TEST_BASE_URL. 4) Run this workflow manually.
+
+name: Live UI test (ngrok)
+
+on:
+  workflow_dispatch:  # Manual run only
+
+jobs:
+  live-ui-test:
+    runs-on: ubuntu-latest
+    # Only run if secret is set (your ngrok URL)
+    if: ${{ secrets.LIVE_TEST_BASE_URL != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-playwright pytest-cov
+
+      - name: Install Playwright browsers
+        run: playwright install --with-deps
+
+      - name: Run real UI test (via ngrok to your machine)
+        env:
+          BASE_URL: ${{ secrets.LIVE_TEST_BASE_URL }}
+          LIVE_ERPNEXT: '1'
+        run: |
+          pytest tests/ui/test_user_journey.py::test_user_journey_upload_view_risk_and_submit_to_erpnext -v --alluredir=allure-results
+
+      - name: Upload Allure results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-live
+          path: allure-results
+          retention-days: 7

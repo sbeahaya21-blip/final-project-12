@@ -26,8 +26,8 @@ pytest tests/ui/test_user_journey.py tests/ui/test_upload_component.py -v
 set BASE_URL=http://localhost:3000
 pytest tests/ui/test_user_journey.py tests/ui/test_upload_component.py -v
 
-# Live ERPNext: no mocks – backend and ERPNext must be running; invoice will appear in ERPNext
-# 1) Start backend (python run.py), frontend (npm run dev), and ERPNext. 2) Configure .env (ERPNEXT_*). 3) Run:
+# Real UI test (no mocks – talks to ERPNext). See tests/ui/REAL_UI_TEST_WITH_ERPNEXT.md
+# Or from project root: run_real_ui_test.bat
 set BASE_URL=http://localhost:3000
 set LIVE_ERPNEXT=1
 pytest tests/ui/test_user_journey.py::test_user_journey_upload_view_risk_and_submit_to_erpnext -v --headed
