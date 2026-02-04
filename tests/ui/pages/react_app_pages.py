@@ -11,9 +11,8 @@ class ReactUploadPage:
         self.base_url = base_url.rstrip("/")
 
     def navigate(self):
-        self.page.goto(f"{self.base_url}/")
-        self.page.wait_for_load_state("networkidle")
-        expect(self.page.locator(".invoice-upload")).to_be_visible(timeout=10000)
+        self.page.goto(f"{self.base_url}/", wait_until="load")
+        expect(self.page.locator(".invoice-upload")).to_be_visible(timeout=15000)
 
     @property
     def upload_zone(self):
@@ -98,8 +97,7 @@ class ReactDetailPage:
         self.base_url = base_url.rstrip("/")
 
     def navigate(self, invoice_id: str):
-        self.page.goto(f"{self.base_url}/invoices/{invoice_id}")
-        self.page.wait_for_load_state("networkidle")
+        self.page.goto(f"{self.base_url}/invoices/{invoice_id}", wait_until="load")
 
     def wait_for_content(self, timeout: int = 10000):
         self.page.locator(".invoice-detail .invoice-card").wait_for(state="visible", timeout=timeout)

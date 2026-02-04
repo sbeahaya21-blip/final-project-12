@@ -30,6 +30,14 @@ jobs:
       - name: Install Playwright browsers
         run: playwright install --with-deps
 
+      - name: Check LIVE_TEST_BASE_URL is reachable
+        run: |
+          url="${{ secrets.LIVE_TEST_BASE_URL }}"
+          if ! curl -sf --max-time 10 "$url" > /dev/null; then
+            echo "::error::LIVE_TEST_BASE_URL is not reachable. Start frontend and ngrok, then update the secret with the current ngrok URL."
+            exit 1
+          fi
+
       - name: Run real UI test (via ngrok to your machine)
         env:
           BASE_URL: ${{ secrets.LIVE_TEST_BASE_URL }}

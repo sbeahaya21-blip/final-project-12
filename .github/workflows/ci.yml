@@ -49,6 +49,9 @@ jobs:
         fail_ci_if_error: false
 
     - name: Run UI tests (fixture + mocked ERP)
+      env:
+        PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
+        PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
       run: |
         pytest tests/ui/ -v --alluredir=allure-results
 
