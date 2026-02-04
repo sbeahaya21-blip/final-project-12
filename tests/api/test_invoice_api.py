@@ -30,7 +30,7 @@ class TestInvoiceUpload:
         response = client.post("/api/invoices/create", json=invalid_data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
     
-    @patch('app.views.invoice_views.parser_service')
+    @patch('app.views.invoice_views.invoice_controller.parser')
     def test_upload_invoice_file_parsing_error(self, mock_parser, client):
         """Test upload when parsing fails."""
         from app.exceptions import ParsingError
