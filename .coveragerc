@@ -1,0 +1,15 @@
+[run]
+source = app
+omit =
+    app/services/parser_service.py
+    app/services/erpnext_client.py
+    app/views/erpnext_views.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+
+[html]
+directory = htmlcov

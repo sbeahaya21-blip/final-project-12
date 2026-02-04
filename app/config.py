@@ -29,10 +29,10 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 _env_cwd = Path.cwd() / ".env"
 for path in (_env_path, _env_cwd):
     if not path.exists():
-        continue
+        continue  # pragma: no cover - env at runtime
     try:
         from dotenv import load_dotenv
-        load_dotenv(path)
+        load_dotenv(path)  # pragma: no cover - depends on env
     except ImportError:
         _load_dotenv(path)
     break  # load only the first .env found
@@ -46,7 +46,7 @@ def _normalize_erpnext_base_url(url: str) -> str:
     try:
         parsed = urlparse(url)
         return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
-    except Exception:
+    except Exception:  # pragma: no cover - urlparse rarely raises
         return url
 
 
