@@ -6,6 +6,7 @@ Pytest fixtures for UI tests.
 import os
 import socket
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,18 @@ try:
 except ImportError:
     HTTPServer = None
     SimpleHTTPRequestHandler = None
+
+
+def _wait_for_port(port: int, timeout: float = 5.0) -> None:
+    """Wait until the server is accepting connections (CI stability)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise RuntimeError("Fixture server did not become ready in time")
 
 
 def _find_free_port():
@@ -53,6 +66,7 @@ def ui_fixture_server():
         server = HTTPServer(("127.0.0.1", port), _SPAFixtureHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
+        _wait_for_port(port)
         yield {"port": port, "server": server}
     finally:
         if server:

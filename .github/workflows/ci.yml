@@ -7,67 +7,93 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
+  api-tests:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-cov pytest-asyncio pytest-playwright
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install Playwright browsers
-      run: playwright install --with-deps
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-asyncio pytest-playwright
 
-    - name: Run API tests with coverage
-      run: |
-        pytest tests/api/ -v \
-          --cov=app \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --cov-report=html \
-          --alluredir=allure-results
-    
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage.xml
-        flags: api-tests
-        name: api-coverage
-        fail_ci_if_error: false
+      - name: Run API tests with coverage
+        run: |
+          pytest tests/api/ -v \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-report=html \
+            --alluredir=allure-results
 
-    - name: Run UI tests (fixture + mocked ERP)
-      env:
-        PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
-        PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
-      run: |
-        pytest tests/ui/ -v --alluredir=allure-results
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: api-tests
+          name: api-coverage
+          fail_ci_if_error: false
 
-    - name: Upload coverage HTML report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-report
-        path: htmlcov/
-        retention-days: 14
-    
-    - name: Upload Allure results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: allure-results
-        path: allure-results
-        retention-days: 30
-      continue-on-error: true
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 14
+
+      - name: Upload Allure results (API)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-api
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
+
+  ui-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-playwright
+
+      - name: Install Playwright Chromium only
+        run: playwright install --with-deps chromium
+
+      - name: Run UI tests (fixture + mocked ERP)
+        env:
+          CI: true
+          PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
+          PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
+        run: |
+          pytest tests/ui/ -v --browser chromium --alluredir=allure-results
+
+      - name: Upload Allure results (UI)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-ui
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
