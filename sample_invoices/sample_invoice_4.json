@@ -1,0 +1,21 @@
+{
+  "vendor_name": "ABC Supplies Co.",
+  "invoice_number": "INV-2024-004",
+  "invoice_date": "2024-01-30T10:00:00",
+  "total_amount": 1275.00,
+  "items": [
+    {
+      "name": "Office Chairs",
+      "quantity": 5.0,
+      "unit_price": 150.0,
+      "total_price": 750.0
+    },
+    {
+      "name": "Desk Lamps",
+      "quantity": 10.0,
+      "unit_price": 50.0,
+      "total_price": 500.0
+    }
+  ],
+  "currency": "USD"
+}

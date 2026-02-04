@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Parser & Anomaly Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section.dragover {
+            background: #e7f3ff;
+            border-color: #764ba2;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .upload-btn:hover {
+            background: #5568d3;
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .invoice-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .invoice-card.suspicious {
+            border-left: 4px solid #ff4444;
+            background: #fff5f5;
+        }
+        
+        .invoice-card.safe {
+            border-left: 4px solid #44ff44;
+        }
+        
+        .risk-score {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .risk-score.high {
+            color: #ff4444;
+        }
+        
+        .risk-score.medium {
+            color: #ffaa00;
+        }
+        
+        .risk-score.low {
+            color: #44ff44;
+        }
+        
+        .explanation {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+        
+        .invoice-details {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .invoice-details h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .invoice-details table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .invoice-details th,
+        .invoice-details td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .invoice-details th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .error {
+            background: #fff5f5;
+            border: 1px solid #ff4444;
+            color: #cc0000;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        
+        .anomalies-list {
+            margin-top: 15px;
+        }
+        
+        .anomaly-item {
+            background: #fff5f5;
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 3px solid #ff4444;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧾 Invoice Parser & Anomaly Detection</h1>
+        <p class="subtitle">Upload invoices to detect anomalies and potential fraud</p>
+        
+        <div class="upload-section" id="uploadSection">
+            <p style="margin-bottom: 20px; font-size: 1.1em; color: #666;">
+                Drag and drop an invoice file here, or click to browse
+            </p>
+            <label for="fileInput" class="upload-btn">Choose File</label>
+            <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.txt">
+            <p id="fileName" style="margin-top: 15px; color: #667eea; font-weight: 600;"></p>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+    
+    <script>
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const results = document.getElementById('results');
+        
+        // Drag and drop handlers
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        async function handleFile(file) {
+            fileName.textContent = `Selected: ${file.name}`;
+            results.innerHTML = '<div class="loading">Processing invoice...</div>';
+            
+            try {
+                // Upload file
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const uploadResponse = await fetch('/api/invoices/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    const error = await uploadResponse.json();
+                    throw new Error(error.detail || 'Upload failed');
+                }
+                
+                const invoice = await uploadResponse.json();
+                
+                // Analyze invoice
+                results.innerHTML = '<div class="loading">Analyzing for anomalies...</div>';
+                
+                const analyzeResponse = await fetch(`/api/invoices/${invoice.id}/analyze`, {
+                    method: 'POST'
+                });
+                
+                if (!analyzeResponse.ok) {
+                    throw new Error('Analysis failed');
+                }
+                
+                const analysis = await analyzeResponse.json();
+                
+                // Display results
+                displayResults(invoice, analysis);
+                
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function displayResults(invoice, analysis) {
+            const riskClass = analysis.risk_score >= 70 ? 'high' : 
+                            analysis.risk_score >= 50 ? 'medium' : 'low';
+            const suspiciousClass = analysis.is_suspicious ? 'suspicious' : 'safe';
+            
+            let anomaliesHtml = '';
+            if (analysis.anomalies && analysis.anomalies.length > 0) {
+                anomaliesHtml = '<div class="anomalies-list"><h4>Detected Anomalies:</h4>';
+                analysis.anomalies.forEach(anomaly => {
+                    anomaliesHtml += `
+                        <div class="anomaly-item">
+                            <strong>${anomaly.type.replace('_', ' ').toUpperCase()}</strong>
+                            ${anomaly.item_name ? ` - ${anomaly.item_name}` : ''}
+                            <br>
+                            <small>${anomaly.description}</small>
+                        </div>
+                    `;
+                });
+                anomaliesHtml += '</div>';
+            }
+            
+            results.innerHTML = `
+                <div class="invoice-card ${suspiciousClass}">
+                    <h2>Invoice Analysis Results</h2>
+                    <div class="risk-score ${riskClass}">
+                        Risk Score: ${analysis.risk_score}/100
+                        ${analysis.is_suspicious ? '⚠️ SUSPICIOUS' : '✓ SAFE'}
+                    </div>
+                    ${anomaliesHtml}
+                    <div class="explanation">
+                        ${analysis.explanation}
+                    </div>
+                    <div class="invoice-details">
+                        <h3>Invoice Details</h3>
+                        <p><strong>Vendor:</strong> ${invoice.parsed_data.vendor_name}</p>
+                        <p><strong>Invoice #:</strong> ${invoice.parsed_data.invoice_number}</p>
+                        <p><strong>Date:</strong> ${new Date(invoice.parsed_data.invoice_date).toLocaleDateString()}</p>
+                        <p><strong>Total Amount:</strong> $${invoice.parsed_data.total_amount.toFixed(2)}</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${invoice.parsed_data.items.map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>$${item.unit_price.toFixed(2)}</td>
+                                        <td>$${item.total_price.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
