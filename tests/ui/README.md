@@ -1,14 +1,22 @@
-# Live UI test (ngrok)
+# UI tests
 
-The only UI test runs the **user journey** (upload invoice → view results → submit to ERPNext) against your **real** app. It is intended to run **via ngrok** from GitHub Actions so GitHub can talk to your local machine.
+One **user journey** test: upload invoice → view results and risk → submit to ERPNext.
+
+- **CI (every PR):** Runs with **mocked ERP** (static fixture + Playwright route mocks). No real backend or ERPNext.
+- **Live (optional):** Set `BASE_URL` and `LIVE_ERPNEXT=1` to run against real app and ERPNext (locally or via ngrok).
+
+See **TEST_PLAN.md** in the project root for full test plan, strategy, and success criteria.
 
 ## Requirements
 
 - **pytest-playwright:** `pip install pytest-playwright`
 - **Browsers:** `playwright install`
-- **BASE_URL** must be set (your app URL, e.g. ngrok or http://localhost:3000).
 
-## Run from GitHub (ngrok)
+## Run in CI (mocked)
+
+On every pull request, the pipeline runs `pytest tests/ui/` with no `BASE_URL`; the fixture is served and all APIs (including ERP) are mocked.
+
+## Run from GitHub (ngrok, live)
 
 1. Start backend, frontend, and ERPNext locally.
 2. Expose frontend with ngrok: `ngrok http 3000`
