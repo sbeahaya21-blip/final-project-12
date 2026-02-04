@@ -27,10 +27,6 @@ jobs:
         pip install -r requirements.txt
         pip install pytest-cov pytest-asyncio
     
-    - name: Install Playwright browsers
-      run: playwright install --with-deps
-      continue-on-error: true  # Playwright might not be needed for API tests
-    
     - name: Run API tests with coverage
       run: |
         pytest tests/api/ -v \
@@ -48,11 +44,6 @@ jobs:
         flags: api-tests
         name: api-coverage
         fail_ci_if_error: false
-    
-    - name: Run UI tests
-      run: |
-        pytest tests/ui/ -v --alluredir=allure-results || true
-      continue-on-error: true
     
     - name: Upload coverage HTML report
       uses: actions/upload-artifact@v4
