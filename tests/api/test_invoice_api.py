@@ -1,4 +1,6 @@
 """API tests for invoice endpoints."""
+import copy
+import uuid
 import pytest
 from fastapi import status
 from unittest.mock import Mock, patch, MagicMock
@@ -108,9 +110,10 @@ class TestAnomalyAnalysis:
     
     def test_analyze_invoice_with_price_increase(self, client):
         """Test detection of price increase anomaly."""
-        # Create historical invoice
+        # Use unique vendor name so persisted/other test data doesn't affect result
+        vendor = f"Vendor-ABC-PriceIncrease-{uuid.uuid4().hex[:8]}"
         historical_invoice = {
-            "vendor_name": "Vendor ABC",
+            "vendor_name": vendor,
             "invoice_number": "INV-HIST-001",
             "invoice_date": "2024-01-01T10:00:00",
             "total_amount": 500.0,
@@ -126,8 +129,8 @@ class TestAnomalyAnalysis:
         }
         client.post("/api/invoices/create", json=historical_invoice)
         
-        # Create new invoice with price increase
-        new_invoice = historical_invoice.copy()
+        # Create new invoice with price increase (deep copy so we don't mutate historical)
+        new_invoice = copy.deepcopy(historical_invoice)
         new_invoice["invoice_number"] = "INV-NEW-001"
         new_invoice["invoice_date"] = "2024-01-15T10:00:00"
         new_invoice["items"][0]["unit_price"] = 75.0  # 50% increase
@@ -148,9 +151,10 @@ class TestAnomalyAnalysis:
     
     def test_analyze_invoice_with_new_item(self, client):
         """Test detection of new item anomaly."""
-        # Create historical invoice
+        # Use unique vendor name so persisted/other test data doesn't affect result
+        vendor = f"Vendor-XYZ-NewItem-{uuid.uuid4().hex[:8]}"
         historical_invoice = {
-            "vendor_name": "Vendor XYZ",
+            "vendor_name": vendor,
             "invoice_number": "INV-HIST-001",
             "invoice_date": "2024-01-01T10:00:00",
             "total_amount": 500.0,
@@ -166,8 +170,8 @@ class TestAnomalyAnalysis:
         }
         client.post("/api/invoices/create", json=historical_invoice)
         
-        # Create new invoice with new item
-        new_invoice = historical_invoice.copy()
+        # Create new invoice with new item (deep copy so we don't mutate historical)
+        new_invoice = copy.deepcopy(historical_invoice)
         new_invoice["invoice_number"] = "INV-NEW-001"
         new_invoice["invoice_date"] = "2024-01-15T10:00:00"
         new_invoice["items"].append({

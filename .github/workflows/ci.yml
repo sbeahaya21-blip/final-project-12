@@ -11,8 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -37,15 +40,14 @@ jobs:
           --cov-report=html \
           --alluredir=allure-results
     
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.xml
         flags: api-tests
         name: api-coverage
         fail_ci_if_error: false
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     
     - name: Run UI tests
       run: |

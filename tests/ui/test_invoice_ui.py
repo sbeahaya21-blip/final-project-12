@@ -1,5 +1,8 @@
 """UI tests for Invoice Upload page using Playwright."""
 import pytest
+
+pytest.importorskip("playwright", reason="Playwright not installed; run: pip install playwright && playwright install")
+
 from playwright.sync_api import Page, expect
 from tests.ui.pages.invoice_page import InvoicePage
 import json
@@ -8,8 +11,15 @@ from pathlib import Path
 
 
 @pytest.fixture
-def invoice_page(page: Page):
-    """Create an InvoicePage instance."""
+def invoice_page(request):
+    """Create an InvoicePage instance. Skips if pytest-playwright 'page' fixture is not available."""
+    try:
+        page = request.getfixturevalue("page")
+    except pytest.FixtureLookupError:
+        pytest.skip(
+            "Playwright 'page' fixture not available. "
+            "Install: pip install pytest-playwright && playwright install"
+        )
     return InvoicePage(page)
 
 
