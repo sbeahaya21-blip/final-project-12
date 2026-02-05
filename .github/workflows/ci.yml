@@ -61,11 +61,100 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  # UI tests require real backend + frontend + ERPNext, so they're skipped in CI.
-  # Use the "Live UI test (ngrok)" workflow to run UI tests against your local app.
-  # ui-tests:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     ...
+  ui-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium only
+        run: playwright install chromium
+
+      - name: Start backend server
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > backend.pid
+
+      - name: Start frontend server
+        run: |
+          npm install -g serve
+          serve -s static -l 3000 &
+          echo $! > frontend.pid
+
+      - name: Wait for servers to be ready
+        run: |
+          echo "Waiting for backend and frontend to start..."
+          timeout=120
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            backend_ready=false
+            frontend_ready=false
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              backend_ready=true
+              echo "Backend is ready"
+            fi
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              frontend_ready=true
+              echo "Frontend is ready"
+            fi
+            if [ "$backend_ready" = true ] && [ "$frontend_ready" = true ]; then
+              echo "Both servers are ready"
+              exit 0
+            fi
+            sleep 3
+            elapsed=$((elapsed + 3))
+            echo "Waiting... ($elapsed/$timeout seconds)"
+          done
+          echo "Servers did not become ready in time"
+          curl -v http://localhost:8000/health || true
+          curl -v http://localhost:3000 || true
+          exit 1
+
+      - name: Run UI tests
+        env:
+          CI: "true"
+          BASE_URL: http://localhost:3000
+          PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
+          PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
+        run: |
+          python -c "import subprocess, sys; sys.exit(subprocess.call([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests/ui', '-p', 'test_*_unittest.py', '-v']))"
+        continue-on-error: true
+
+      - name: Stop servers
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then kill $(cat backend.pid) || true; fi
+          if [ -f frontend.pid ]; then kill $(cat frontend.pid) || true; fi
+
+      - name: Upload Allure results (UI)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-ui
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
