@@ -1,6 +1,6 @@
 # Integration Tests
 
-Integration tests that run against **real backend and ERPNext** (no mocks). These tests verify end-to-end functionality.
+Integration tests that run against **real backend and ERPNext** (no mocks). These tests use **unittest** (not pytest).
 
 ## Requirements
 
@@ -32,26 +32,32 @@ Integration tests that run against **real backend and ERPNext** (no mocks). Thes
 ### Run All Integration Tests
 
 ```bash
-pytest tests/integration/ -v
+python -m unittest discover -s tests/integration -p "test_*.py" -v
+```
+
+Or run the module directly:
+
+```bash
+python -m unittest tests.integration.test_invoice_integration -v
 ```
 
 ### Run Specific Test Classes
 
 ```bash
 # Test invoice upload/retrieval only
-pytest tests/integration/test_invoice_integration.py::TestInvoiceUploadIntegration -v
+python -m unittest tests.integration.test_invoice_integration.TestInvoiceUploadIntegration -v
 
 # Test ERPNext integration only
-pytest tests/integration/test_invoice_integration.py::TestERPNextIntegration -v
+python -m unittest tests.integration.test_invoice_integration.TestERPNextIntegration -v
 
 # Test full workflow
-pytest tests/integration/test_invoice_integration.py::TestFullWorkflowIntegration -v
+python -m unittest tests.integration.test_invoice_integration.TestFullWorkflowIntegration -v
 ```
 
 ### Custom Backend/ERPNext URLs
 
 ```bash
-BACKEND_URL=http://localhost:8000 ERPNEXT_BASE_URL=http://localhost:8080 pytest tests/integration/ -v
+BACKEND_URL=http://localhost:8000 ERPNEXT_BASE_URL=http://localhost:8080 python -m unittest discover -s tests/integration -p "test_*.py" -v
 ```
 
 ## What's Tested
@@ -71,7 +77,7 @@ BACKEND_URL=http://localhost:8000 ERPNEXT_BASE_URL=http://localhost:8080 pytest 
 
 ## Notes
 
-- Tests **skip automatically** if backend or ERPNext is not available
+- Tests **skip automatically** if backend or ERPNext is not available (via `unittest.SkipTest` in `setUpClass`)
 - Tests use **real HTTP requests** (no TestClient mocks)
 - Tests verify **real ERPNext integration** (invoices are actually created in ERPNext)
 - Tests are **idempotent** - can be run multiple times safely
