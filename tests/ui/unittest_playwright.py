@@ -30,7 +30,8 @@ class PlaywrightTestCase(unittest.TestCase):
         if sync_playwright is None:
             self.skipTest("Playwright not installed")
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=False)
+        headless = os.environ.get("CI") == "true"
+        self._browser = self._pw.chromium.launch(headless=headless)
         self._context = self._browser.new_context()
         self._page = self._context.new_page()
         self.base_url = _get_base_url()
