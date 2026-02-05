@@ -61,6 +61,60 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest requests
+
+      - name: Start backend server
+        env:
+          ERPNEXT_BASE_URL: http://localhost:8080
+          ERPNEXT_API_KEY: ${{ secrets.ERPNEXT_API_KEY }}
+          ERPNEXT_API_SECRET: ${{ secrets.ERPNEXT_API_SECRET }}
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > backend.pid
+
+      - name: Wait for backend to be ready
+        run: |
+          timeout=60
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Backend did not become ready in time"
+          exit 1
+
+      - name: Run integration tests
+        env:
+          BACKEND_URL: http://localhost:8000
+          ERPNEXT_BASE_URL: http://localhost:8080
+        run: |
+          pytest tests/integration/ -v --tb=short
+        continue-on-error: true
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then kill $(cat backend.pid) || true; fi
+
   ui-tests:
     runs-on: ubuntu-latest
     steps:
