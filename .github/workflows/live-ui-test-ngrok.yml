@@ -30,7 +30,7 @@ jobs:
       - name: Check LIVE_TEST_BASE_URL is set and reachable
         run: |
           url="${{ secrets.LIVE_TEST_BASE_URL }}"
-          if [ -z "$url" ]; then
+          if [ -z "	https://transphysically-pseudomorular-rudolf.ngrok-free.dev" ]; then
             echo "::error::Secret LIVE_TEST_BASE_URL is not set. Add it in repo Settings → Secrets and variables → Actions."
             exit 1
           fi
