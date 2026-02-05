@@ -75,7 +75,6 @@ class TestInvoiceUploadIntegration:
         assert "parsed_data" in data
         assert "vendor_name" in data["parsed_data"]
         assert "risk_score" in data
-        return data["id"]
 
     def test_create_invoice_via_json(self, backend_available):
         """Test creating an invoice via JSON API."""
@@ -113,7 +112,6 @@ class TestInvoiceUploadIntegration:
         assert data["parsed_data"]["invoice_number"] == "INT-TEST-001"
         assert len(data["parsed_data"]["items"]) == 2
         assert "risk_score" in data
-        return data["id"]
 
     def test_get_invoice_after_upload(self, backend_available, sample_pdf_path):
         """Test retrieving an invoice after upload."""
@@ -184,26 +182,54 @@ class TestERPNextIntegration:
         assert data["submitted_to_erpnext"] is True
         assert "erpnext_invoice_name" in data
         assert data["erpnext_invoice_name"] is not None
-        
-        return invoice_id, data["erpnext_invoice_name"]
 
     def test_submit_already_submitted_invoice(self, backend_available, erpnext_available):
         """Test submitting an invoice that's already been submitted."""
-        # Create and submit invoice
-        invoice_id, erpnext_name = self.test_submit_invoice_to_erpnext(backend_available, erpnext_available)
+        # Create an invoice first
+        invoice_data = {
+            "vendor_name": "ERPNext Test Vendor Duplicate",
+            "invoice_number": "ERP-TEST-DUP-001",
+            "invoice_date": "2024-01-15T10:00:00",
+            "total_amount": 2000.0,
+            "items": [
+                {
+                    "name": "Test Product",
+                    "quantity": 1.0,
+                    "unit_price": 2000.0,
+                    "total_price": 2000.0
+                }
+            ],
+            "currency": "USD"
+        }
         
-        # Try to submit again
+        create_response = requests.post(
+            f"{BACKEND_URL}/api/invoices/create",
+            json=invoice_data,
+            timeout=10
+        )
+        assert create_response.status_code == 201
+        invoice_id = create_response.json()["id"]
+        
+        # Submit to ERPNext first time
+        first_submit = requests.post(
+            f"{BACKEND_URL}/api/invoices/{invoice_id}/submit-to-erpnext",
+            json={},
+            timeout=30
+        )
+        assert first_submit.status_code == 200
+        erpnext_name = first_submit.json()["erpnext_invoice_name"]
+        
+        # Try to submit again - should return 400
         submit_response = requests.post(
             f"{BACKEND_URL}/api/invoices/{invoice_id}/submit-to-erpnext",
             json={},
             timeout=30
         )
         
-        # Should return success with existing ERPNext invoice name
-        assert submit_response.status_code == 200
-        data = submit_response.json()
-        assert data["submitted_to_erpnext"] is True
-        assert data["erpnext_invoice_name"] == erpnext_name
+        # Backend returns 400 when invoice is already submitted
+        assert submit_response.status_code == 400
+        error_data = submit_response.json()
+        assert "already been submitted" in error_data["detail"].lower()
 
 
 class TestFullWorkflowIntegration:
