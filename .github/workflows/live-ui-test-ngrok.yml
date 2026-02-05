@@ -9,9 +9,6 @@ on:
 jobs:
   live-ui-test:
     runs-on: ubuntu-latest
-    # Only run if secret is set (your ngrok URL)
-    if: ${{ secrets.LIVE_TEST_BASE_URL != '' }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,30 +22,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-playwright pytest-cov
+          pip install playwright
 
       - name: Install Playwright browsers
-        run: playwright install --with-deps
+        run: playwright install --with-deps chromium
 
-      - name: Check LIVE_TEST_BASE_URL is reachable
+      - name: Check LIVE_TEST_BASE_URL is set and reachable
         run: |
           url="${{ secrets.LIVE_TEST_BASE_URL }}"
+          if [ -z "$url" ]; then
+            echo "::error::Secret LIVE_TEST_BASE_URL is not set. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
           if ! curl -sf --max-time 10 "$url" > /dev/null; then
             echo "::error::LIVE_TEST_BASE_URL is not reachable. Start frontend and ngrok, then update the secret with the current ngrok URL."
             exit 1
           fi
 
-      - name: Run real UI test (via ngrok to your machine)
+      - name: Run real UI tests (via ngrok to your machine)
         env:
           BASE_URL: ${{ secrets.LIVE_TEST_BASE_URL }}
-          LIVE_ERPNEXT: '1'
         run: |
-          pytest tests/ui/test_user_journey.py::test_user_journey_upload_view_risk_and_submit_to_erpnext -v --alluredir=allure-results
-
-      - name: Upload Allure results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results-live
-          path: allure-results
-          retention-days: 7
+          python -m unittest discover -s tests/ui -p "test_*_unittest.py" -v
