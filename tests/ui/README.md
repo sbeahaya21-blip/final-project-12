@@ -23,10 +23,17 @@ python -m unittest discover -s tests/ui -p "test_*_unittest.py" -v
 Or run a single module:
 
 ```bash
+# User journey only (upload → view risk → submit to ERPNext)
 python -m unittest tests.ui.test_user_journey_unittest -v
+# Or with pytest + Allure:
+pytest tests/ui/test_user_journey_unittest.py -v --alluredir=allure-results
+
 python -m unittest tests.ui.test_specific_invoice_unittest -v
 python -m unittest tests.ui.test_invoice_with_erpnext_verification_unittest -v
 ```
+
+**Run only user journey UI test:** from project root use `run_ui_user_journey_only.bat` or:
+`pytest tests/ui/test_user_journey_unittest.py -v --alluredir=allure-results`
 
 ### Optional: custom app URL
 

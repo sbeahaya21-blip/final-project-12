@@ -107,13 +107,22 @@ jobs:
           BACKEND_URL: http://localhost:8000
           ERPNEXT_BASE_URL: http://localhost:8080
         run: |
-          python -m unittest discover -s tests/integration -p "test_*.py" -v
+          pytest tests/integration/ -v --alluredir=allure-results
         continue-on-error: true
 
       - name: Stop backend server
         if: always()
         run: |
           if [ -f backend.pid ]; then kill $(cat backend.pid) || true; fi
+
+      - name: Upload Allure results (Integration)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-integration
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
 
   ui-tests:
     runs-on: ubuntu-latest
@@ -210,7 +219,7 @@ jobs:
           PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
           PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
         run: |
-          python -c "import subprocess, sys; sys.exit(subprocess.call([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests/ui', '-p', 'test_*_unittest.py', '-v']))"
+          pytest tests/ui/ -v --alluredir=allure-results
         continue-on-error: true
 
       - name: Stop servers

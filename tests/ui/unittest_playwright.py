@@ -30,7 +30,13 @@ class PlaywrightTestCase(unittest.TestCase):
         if sync_playwright is None:
             self.skipTest("Playwright not installed")
         self._pw = sync_playwright().start()
-        headless = os.environ.get("CI") == "true"
+        # Headless=False only for test_user_journey_unittest.py; headless=True for all other UI tests.
+        # In CI, always headless.
+        if os.environ.get("CI") == "true":
+            headless = True
+        else:
+            module = self.__class__.__module__
+            headless = "test_user_journey_unittest" not in module
         self._browser = self._pw.chromium.launch(headless=headless)
         self._context = self._browser.new_context()
         self._page = self._context.new_page()
