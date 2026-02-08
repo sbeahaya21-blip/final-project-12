@@ -7,66 +7,232 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
+  api-tests:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-cov pytest-asyncio
-    
-    - name: Install Playwright browsers
-      run: playwright install --with-deps
-      continue-on-error: true  # Playwright might not be needed for API tests
-    
-    - name: Run API tests with coverage
-      run: |
-        pytest tests/api/ -v \
-          --cov=app \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --cov-report=html \
-          --alluredir=allure-results
-    
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage.xml
-        flags: api-tests
-        name: api-coverage
-        fail_ci_if_error: false
-    
-    - name: Run UI tests
-      run: |
-        pytest tests/ui/ -v --alluredir=allure-results || true
-      continue-on-error: true
-    
-    - name: Upload coverage HTML report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-report
-        path: htmlcov/
-        retention-days: 14
-    
-    - name: Upload Allure results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: allure-results
-        path: allure-results
-        retention-days: 30
-      continue-on-error: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-asyncio pytest-playwright
+
+      - name: Run API tests with coverage
+        run: |
+          pytest tests/api/ -v \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-report=html \
+            --alluredir=allure-results
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: api-tests
+          name: api-coverage
+          fail_ci_if_error: false
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 14
+
+      - name: Upload Allure results (API)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-api
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest requests
+
+      - name: Start backend server
+        env:
+          ERPNEXT_BASE_URL: http://localhost:8080
+          ERPNEXT_API_KEY: ${{ secrets.ERPNEXT_API_KEY }}
+          ERPNEXT_API_SECRET: ${{ secrets.ERPNEXT_API_SECRET }}
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > backend.pid
+
+      - name: Wait for backend to be ready
+        run: |
+          timeout=60
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Backend did not become ready in time"
+          exit 1
+
+      - name: Run integration tests
+        env:
+          BACKEND_URL: http://localhost:8000
+          ERPNEXT_BASE_URL: http://localhost:8080
+        run: |
+          pytest tests/integration/ -v --alluredir=allure-results
+        continue-on-error: true
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then kill $(cat backend.pid) || true; fi
+
+      - name: Upload Allure results (Integration)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-integration
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
+
+  ui-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium only
+        run: playwright install chromium
+
+      - name: Start backend server
+        env:
+          ERPNEXT_BASE_URL: http://localhost:8080
+          ERPNEXT_API_KEY: ${{ secrets.ERPNEXT_API_KEY }}
+          ERPNEXT_API_SECRET: ${{ secrets.ERPNEXT_API_SECRET }}
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > backend.pid
+
+      - name: Start frontend server
+        run: |
+          npm install -g serve
+          serve -s static -l 3000 &
+          echo $! > frontend.pid
+
+      - name: Wait for servers to be ready
+        run: |
+          echo "Waiting for backend and frontend to start..."
+          timeout=120
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            backend_ready=false
+            frontend_ready=false
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              backend_ready=true
+              echo "Backend is ready"
+            fi
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              frontend_ready=true
+              echo "Frontend is ready"
+            fi
+            if [ "$backend_ready" = true ] && [ "$frontend_ready" = true ]; then
+              echo "Both servers are ready"
+              exit 0
+            fi
+            sleep 3
+            elapsed=$((elapsed + 3))
+            echo "Waiting... ($elapsed/$timeout seconds)"
+          done
+          echo "Servers did not become ready in time"
+          curl -v http://localhost:8000/health || true
+          curl -v http://localhost:3000 || true
+          exit 1
+
+      - name: Check ERPNext availability
+        run: |
+          echo "Checking ERPNext at http://localhost:8080..."
+          if curl -sf http://localhost:8080/api/method/ping > /dev/null 2>&1; then
+            echo "ERPNext is accessible"
+          else
+            echo "Warning: ERPNext is not accessible at http://localhost:8080"
+            echo "ERPNext-specific tests may fail"
+          fi
+        continue-on-error: true
+
+      - name: Run UI tests
+        env:
+          CI: "true"
+          BASE_URL: http://localhost:3000
+          PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT: 30000
+          PLAYWRIGHT_DEFAULT_TIMEOUT: 15000
+        run: |
+          pytest tests/ui/ -v --alluredir=allure-results
+        continue-on-error: true
+
+      - name: Stop servers
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then kill $(cat backend.pid) || true; fi
+          if [ -f frontend.pid ]; then kill $(cat frontend.pid) || true; fi
+
+      - name: Upload Allure results (UI)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-ui
+          path: allure-results
+          retention-days: 30
+        continue-on-error: true
